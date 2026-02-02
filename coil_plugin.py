@@ -2,6 +2,8 @@ import pcbnew
 import json
 import wx
 import math
+from pcbnew import EDA_ANGLE
+from pcbnew import VECTOR2I, FromMM
 
 
 CENTER_X = 150
@@ -16,8 +18,8 @@ def create_tracks(board, group, net, layer, thickness, coords):
         y = coord["y"] + CENTER_Y
         track = pcbnew.PCB_TRACK(board)
         if last_x is not None:
-            track.SetStart(pcbnew.wxPointMM(float(last_x), float(last_y)))
-            track.SetEnd(pcbnew.wxPointMM(float(x), float(y)))
+            track.SetStart(pcbnew.VECTOR2I_MM(float(last_x), float(last_y)))
+            track.SetEnd(pcbnew.VECTOR2I_MM(float(x), float(y)))
             track.SetWidth(int(thickness * 1e6))
             track.SetLayer(layer)
             if net is not None:
@@ -89,7 +91,7 @@ class CoilPlugin(pcbnew.ActionPlugin):
                     net = self.findNet(board, via)
                     pcb_via = pcbnew.PCB_VIA(board)
                     pcb_via.SetPosition(
-                        pcbnew.wxPointMM(via["x"] + CENTER_X, via["y"] + CENTER_Y)
+                        pcbnew.VECTOR2I_MM(via["x"] + CENTER_X, via["y"] + CENTER_Y)
                     )
                     pcb_via.SetWidth(int(via_diameter * 1e6))
                     pcb_via.SetDrill(int(via_drill_diameter * 1e6))
@@ -102,7 +104,7 @@ class CoilPlugin(pcbnew.ActionPlugin):
                 #     x = pin["x"] + CENTER_X
                 #     y = pin["y"] + CENTER_Y
                 #     module = pcbnew.FOOTPRINT(board)
-                #     module.SetPosition(pcbnew.wxPointMM(x, y))
+                #     module.SetPosition(pcbnew.VECTOR2I_MM(x, y))
                 #     board.Add(module)
                 #     pcb_pad = pcbnew.PAD(module)
                 #     pcb_pad.SetSize(pcbnew.wxSizeMM(pin_diameter, pin_diameter))
@@ -110,7 +112,7 @@ class CoilPlugin(pcbnew.ActionPlugin):
                 #     pcb_pad.SetAttribute(pcbnew.PAD_ATTRIB_PTH)
                 #     pcb_pad.SetLayerSet(pcb_pad.PTHMask())
                 #     pcb_pad.SetDrillSize(pcbnew.wxSizeMM(pin_drill, pin_drill))
-                #     pcb_pad.SetPosition(pcbnew.wxPointMM(x, y))
+                #     pcb_pad.SetPosition(pcbnew.VECTOR2I_MM(x, y))
                 #     pcb_pad.SetNetCode(net.GetNetCode())
                 #     module.Add(pcb_pad)
 
@@ -122,7 +124,7 @@ class CoilPlugin(pcbnew.ActionPlugin):
                     x = pin["x"] + CENTER_X
                     y = pin["y"] + CENTER_Y
                     module = pcbnew.FOOTPRINT(board)
-                    module.SetPosition(pcbnew.wxPointMM(x, y))
+                    module.SetPosition(pcbnew.VECTOR2I_MM(x, y))
                     board.Add(module)
                     pcb_pad = pcbnew.PAD(module)
                     pcb_pad.SetSize(pcbnew.wxSizeMM(pin["width"], pin["height"]))
@@ -130,9 +132,9 @@ class CoilPlugin(pcbnew.ActionPlugin):
                     pcb_pad.SetAttribute(pcbnew.PAD_ATTRIB_SMD)
                     pcb_pad.SetLayerSet(pcb_pad.SMDMask())
                     # pcb_pad.SetLayerSet(lset)
-                    pcb_pad.SetPosition(pcbnew.wxPointMM(x, y))
+                    pcb_pad.SetPosition(pcbnew.VECTOR2I_MM(x, y))
                     pcb_pad.SetNetCode(net.GetNetCode())
-                    pcb_pad.Flip(pcbnew.wxPointMM(x, y), False)
+                    pcb_pad.Flip(pcbnew.VECTOR2I_MM(x, y), False)
                     module.Add(pcb_pad)
 
                 # create any silk screen
@@ -141,18 +143,20 @@ class CoilPlugin(pcbnew.ActionPlugin):
                     y = text["y"] + CENTER_Y
                     pcb_txt = pcbnew.PCB_TEXT(board)
                     pcb_txt.SetText(text["text"])
-                    pcb_txt.SetPosition(pcbnew.wxPointMM(x, y))
-                    pcb_txt.SetHorizJustify(pcbnew.GR_TEXT_HJUSTIFY_CENTER)
-                    pcb_txt.Rotate(pcbnew.wxPointMM(x, y), text["angle"])
-                    pcb_txt.SetTextSize(
-                        pcbnew.wxSize(
-                            text["size"] * pcbnew.IU_PER_MM,
-                            text["size"] * pcbnew.IU_PER_MM,
-                        )
+                    pcb_txt.SetPosition(pcbnew.VECTOR2I_MM(x, y))
+                    pcb_txt.SetHorizJustify(pcbnew.GR_TEXT_H_ALIGN_CENTER)
+                    angle = EDA_ANGLE(text["angle"])
+                    pcb_txt.Rotate(pcbnew.VECTOR2I_MM(x, y), angle)
+
+                    text_size = VECTOR2I(
+                        pcbnew.FromMM(text["size"]),
+                        pcbnew.FromMM(text["size"])
                     )
+
+                    pcb_txt.SetTextSize(text_size)
                     pcb_txt.SetLayer(pcbnew.F_SilkS)
                     if text["layer"] == "b":
-                        pcb_txt.Flip(pcbnew.wxPointMM(x, y), True)
+                        pcb_txt.Flip(pcbnew.VECTOR2I_MM(x, y), True)
                     board.Add(pcb_txt)
                     pcb_group.AddItem(pcb_txt)
 
@@ -161,7 +165,7 @@ class CoilPlugin(pcbnew.ActionPlugin):
                 #     x = hole["x"] + CENTER_X
                 #     y = hole["y"] + CENTER_Y
                 #     module = pcbnew.FOOTPRINT(board)
-                #     module.SetPosition(pcbnew.wxPointMM(x, y))
+                #     module.SetPosition(pcbnew.VECTOR2I_MM(x, y))
                 #     board.Add(module)
                 #     pcb_pad = pcbnew.PAD(module)
                 #     pcb_pad.SetSize(pcbnew.wxSizeMM(hole["diameter"], hole["diameter"]))
@@ -171,7 +175,7 @@ class CoilPlugin(pcbnew.ActionPlugin):
                 #     pcb_pad.SetDrillSize(
                 #         pcbnew.wxSizeMM(hole["diameter"], hole["diameter"])
                 #     )
-                #     pcb_pad.SetPosition(pcbnew.wxPointMM(x, y))
+                #     pcb_pad.SetPosition(pcbnew.VECTOR2I_MM(x, y))
                 #     module.Add(pcb_pad)
                     # pcb_group.AddItem(pcb_hole)
 
@@ -186,7 +190,7 @@ class CoilPlugin(pcbnew.ActionPlugin):
                     for point in edge_cut:
                         x = point["x"] + CENTER_X
                         y = point["y"] + CENTER_Y
-                        v.append(pcbnew.wxPointMM(x, y))
+                        v.append(pcbnew.VECTOR2I_MM(x, y))
                     ec.SetPolyPoints(v)
                     board.Add(ec)
 
@@ -201,7 +205,7 @@ class CoilPlugin(pcbnew.ActionPlugin):
                     for point in edge_cut:
                         x = point["x"] + CENTER_X
                         y = point["y"] + CENTER_Y
-                        v.append(pcbnew.wxPointMM(x, y))
+                        v.append(pcbnew.VECTOR2I_MM(x, y))
                     ec.SetPolyPoints(v)
                     board.Add(ec)
 
@@ -215,7 +219,7 @@ class CoilPlugin(pcbnew.ActionPlugin):
                     for point in edge_cut:
                         x = point["x"] + CENTER_X
                         y = point["y"] + CENTER_Y
-                        v.append(pcbnew.wxPointMM(x, y))
+                        v.append(pcbnew.VECTOR2I_MM(x, y))
                     ec.SetPolyPoints(v)
                     board.Add(ec)
 
@@ -231,18 +235,36 @@ class CoilPlugin(pcbnew.ActionPlugin):
                 #         ],
                 #     }
                 # ]
+                # for i, component in enumerate(coil_data["components"]):
+                #     component_ref = component["ref"]
+                #     module = board.FindFootprintByReference(component_ref)
+                #     for pad in component["pads"]:
+                #         pad_num = str(pad["num"])
+                #         pcb_pad = module.FindPadByNumber(pad_num)
+                #         net = self.findNet(board, pad)
+                #         # wx.MessageBox("ref: " + component_ref + " Pad: " + pad_num + " Net: " + pad["net"] + " NetCode: " + str(net.GetNetCode()))
+                #         if net is not None:
+                #             pcb_pad.SetNetCode(net.GetNetCode())
+                #         module.Add(pcb_pad)
+                #         pcb_group.AddItem(pcb_pad)
                 for i, component in enumerate(coil_data["components"]):
                     component_ref = component["ref"]
                     module = board.FindFootprintByReference(component_ref)
+                    if module is None:
+                        raise ValueError(f"Footprint with reference '{component_ref}' not found on the board.")
+                    
                     for pad in component["pads"]:
                         pad_num = str(pad["num"])
                         pcb_pad = module.FindPadByNumber(pad_num)
+                        if pcb_pad is None:
+                            raise ValueError(f"Pad number '{pad_num}' not found in footprint '{component_ref}'.")
+                        
                         net = self.findNet(board, pad)
-                        # wx.MessageBox("ref: " + component_ref + " Pad: " + pad_num + " Net: " + pad["net"] + " NetCode: " + str(net.GetNetCode()))
                         if net is not None:
                             pcb_pad.SetNetCode(net.GetNetCode())
                         module.Add(pcb_pad)
                         pcb_group.AddItem(pcb_pad)
+
 
     def findNet(self, board, element):
         # find the matching net for the track

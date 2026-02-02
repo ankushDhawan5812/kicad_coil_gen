@@ -38,12 +38,12 @@ def create_silk(point, text, layer="f", size=1, angle=0):
     }
 
 
-def create_via(point, net_name):
+def create_via(point, net_name=None):
     return {"x": point[0], "y": point[1], "net": net_name}
 
 
-# def create_track(points, net_name):
-#     return [{"x": x, "y": y, "net": net_name} for x, y in points]
+def create_track(points, net_name):
+    return [{"x": x, "y": y, "net": net_name} for x, y in points]
 
 
 def create_mounting_hole(point, diameter):
@@ -101,25 +101,44 @@ def dump_json(
             for track_info in tracks_b],
         "in": tracks_inner
     }
-
+    json_result = None
+    
+    if components == None:
+        json_result = {
+            "parameters": {
+                "trackWidth": track_width,
+                "viaDiameter": via_diam,
+                "viaDrillDiameter": via_drill,
+                "pinDiameter": pin_diam,
+                "pinDrillDiameter": pin_drill,
+            },
+            "vias": vias,
+            "pins": pins,
+            "pads": pads,
+            "silk": silk,
+            "tracks": tracks,
+            "mountingHoles": mounting_holes,
+            "edgeCuts": [create_track_json(points) for points in edge_cuts],
+        }
     # dump out the results to json
-    json_result = {
-        "parameters": {
-            "trackWidth": track_width,
-            "viaDiameter": via_diam,
-            "viaDrillDiameter": via_drill,
-            "pinDiameter": pin_diam,
-            "pinDrillDiameter": pin_drill,
-        },
-        "vias": vias,
-        "pins": pins,
-        "pads": pads,
-        "silk": silk,
-        "tracks": tracks,
-        "mountingHoles": mounting_holes,
-        "edgeCuts": [create_track_json(points) for points in edge_cuts],
-        "components": components,
-    }
+    else: 
+        json_result = {
+            "parameters": {
+                "trackWidth": track_width,
+                "viaDiameter": via_diam,
+                "viaDrillDiameter": via_drill,
+                "pinDiameter": pin_diam,
+                "pinDrillDiameter": pin_drill,
+            },
+            "vias": vias,
+            "pins": pins,
+            "pads": pads,
+            "silk": silk,
+            "tracks": tracks,
+            "mountingHoles": mounting_holes,
+            "edgeCuts": [create_track_json(points) for points in edge_cuts],
+            "components": components,
+        }
     json.dump(json_result, open(filename, "w"))
     return json_result
 
