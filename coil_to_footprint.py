@@ -85,8 +85,12 @@ def generate_footprint_file(coil_data, output_path):
     # Add pads
     for i, pad in enumerate(coil_data["pads"]):
         pad_num = str(i + 1)  # Simple numbering
-        lines.append("  (pad \"{}\" smd rect (at {} {}) (size {} {}) (layers \"F.Cu\" \"F.Paste\" \"F.Mask\"))".format(
-            pad_num, pad["x"], pad["y"], pad["width"], pad["height"]
+        if pad.get("layer", "f") == "b":
+            layers = "\"B.Cu\" \"B.Paste\" \"B.Mask\""
+        else:
+            layers = "\"F.Cu\" \"F.Paste\" \"F.Mask\""
+        lines.append("  (pad \"{}\" smd rect (at {} {}) (size {} {}) (layers {}))".format(
+            pad_num, pad["x"], pad["y"], pad["width"], pad["height"], layers
         ))
     
     # Add silk screen elements
@@ -124,9 +128,12 @@ def generate_footprint_file(coil_data, output_path):
         f.write('\n'.join(lines))
 
 
-def ensure_coil_footprints_directory():
-    """Ensure the coil_footprints directory exists, create it if it doesn't"""
-    coil_footprints_dir = os.path.join(os.getcwd(), "coil_footprints")
+def ensure_coil_footprints_directory(project_name=None):
+    """Ensure the coil_footprints[/<project_name>] directory exists, create it if it doesn't"""
+    if project_name:
+        coil_footprints_dir = os.path.join(os.getcwd(), "coil_footprints", project_name)
+    else:
+        coil_footprints_dir = os.path.join(os.getcwd(), "coil_footprints")
     if not os.path.exists(coil_footprints_dir):
         os.makedirs(coil_footprints_dir)
         print(f"Created coil_footprints directory: {coil_footprints_dir}")
@@ -144,72 +151,94 @@ def ensure_coil_json_directory():
 
 def main():
     parser = argparse.ArgumentParser(description='Convert coil JSON files to KiCad footprint files')
-    parser.add_argument('input', nargs='?', help='Input coil JSON file or directory (optional, defaults to coil_json/)')
+    parser.add_argument('input', help='Input coil JSON file, or a directory when using --batch')
     parser.add_argument('output', nargs='?', help='Output footprint file (.kicad_mod) or directory (optional, defaults to coil_footprints/)')
-    parser.add_argument('--batch', action='store_true', help='Process multiple files (input should be a directory)')
-    
+    parser.add_argument('--batch', action='store_true', help='Process all files in a directory')
+
     args = parser.parse_args()
-    
-    # Set default input directory to coil_json if not specified
-    if args.input is None:
-        args.input = "coil_json"
-        args.batch = True  # Default to batch mode when using coil_json directory
     
     if args.batch:
         # Batch processing
         if not os.path.isdir(args.input):
             print("Error: Input must be a directory when using --batch")
             sys.exit(1)
-        
-        # Use coil_footprints directory for batch output
-        output_dir = ensure_coil_footprints_directory()
-        
-        json_files = [f for f in os.listdir(args.input) if f.endswith('.json')]
-        
-        if not json_files:
-            print(f"No JSON files found in {args.input} directory")
+
+        total_converted = 0
+
+        # Walk through input dir: process JSON files at top level and in project subfolders
+        for entry in sorted(os.listdir(args.input)):
+            entry_path = os.path.join(args.input, entry)
+
+            if os.path.isfile(entry_path) and entry.endswith('.json'):
+                # JSON directly in coil_json/ (no project subfolder)
+                output_dir = ensure_coil_footprints_directory()
+                output_filename = os.path.splitext(entry)[0] + '.kicad_mod'
+                output_path = os.path.join(output_dir, output_filename)
+                try:
+                    with open(entry_path, 'r') as f:
+                        coil_data = json.load(f)
+                    generate_footprint_file(coil_data, output_path)
+                    print(f"Converted: {entry} -> coil_footprints/{output_filename}")
+                    total_converted += 1
+                except Exception as e:
+                    print(f"Error processing {entry}: {str(e)}")
+
+            elif os.path.isdir(entry_path):
+                # Project subfolder
+                project_name = entry
+                json_files = [f for f in os.listdir(entry_path) if f.endswith('.json')]
+                if not json_files:
+                    continue
+                output_dir = ensure_coil_footprints_directory(project_name)
+                print(f"Processing project: {project_name}/ ({len(json_files)} files)")
+                for json_file in sorted(json_files):
+                    input_path = os.path.join(entry_path, json_file)
+                    output_filename = os.path.splitext(json_file)[0] + '.kicad_mod'
+                    output_path = os.path.join(output_dir, output_filename)
+                    try:
+                        with open(input_path, 'r') as f:
+                            coil_data = json.load(f)
+                        generate_footprint_file(coil_data, output_path)
+                        print(f"  Converted: {json_file} -> coil_footprints/{project_name}/{output_filename}")
+                        total_converted += 1
+                    except Exception as e:
+                        print(f"  Error processing {json_file}: {str(e)}")
+
+        if total_converted == 0:
+            print(f"No JSON files found in {args.input}/")
             sys.exit(1)
-        
-        print(f"Found {len(json_files)} JSON files in {args.input}/")
-        
-        for json_file in json_files:
-            input_path = os.path.join(args.input, json_file)
-            output_filename = os.path.splitext(json_file)[0] + '.kicad_mod'
-            output_path = os.path.join(output_dir, output_filename)
-            
-            try:
-                with open(input_path, 'r') as f:
-                    coil_data = json.load(f)
-                
-                generate_footprint_file(coil_data, output_path)
-                print(f"Converted: {json_file} -> coil_footprints/{output_filename}")
-                
-            except Exception as e:
-                print(f"Error processing {json_file}: {str(e)}")
-    
+        print(f"\nConverted {total_converted} file(s) total.")
+
     else:
         # Single file processing
         if not os.path.exists(args.input):
             print(f"Error: Input file '{args.input}' not found")
             sys.exit(1)
-        
+
         try:
             with open(args.input, 'r') as f:
                 coil_data = json.load(f)
-            
+
             # Determine output path
             if args.output:
                 output_path = args.output
             else:
-                # Default to coil_footprints directory
-                coil_footprints_dir = ensure_coil_footprints_directory()
+                # Infer project subfolder if input is coil_json/<project>/<file>.json
                 input_filename = os.path.basename(args.input)
                 output_filename = os.path.splitext(input_filename)[0] + '.kicad_mod'
+                parent_dir = os.path.basename(os.path.dirname(args.input))
+                grandparent_dir = os.path.basename(os.path.dirname(os.path.dirname(args.input)))
+                if grandparent_dir == "coil_json":
+                    # Input is inside a project subfolder
+                    project_name = parent_dir
+                    coil_footprints_dir = ensure_coil_footprints_directory(project_name)
+                else:
+                    coil_footprints_dir = ensure_coil_footprints_directory()
                 output_path = os.path.join(coil_footprints_dir, output_filename)
-            
+
             generate_footprint_file(coil_data, output_path)
             print(f"Successfully converted {args.input} to {output_path}")
-            
+
         except Exception as e:
             print(f"Error: {str(e)}")
             sys.exit(1)

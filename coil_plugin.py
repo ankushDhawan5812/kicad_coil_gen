@@ -134,6 +134,8 @@ class CoilPlugin(pcbnew.ActionPlugin):
                     # pcb_pad.SetLayerSet(lset)
                     pcb_pad.SetPosition(pcbnew.VECTOR2I_MM(x, y))
                     pcb_pad.SetNetCode(net.GetNetCode())
+                    if pin.get("clearance", 0) > 0:
+                        pcb_pad.SetLocalClearance(pcbnew.FromMM(pin["clearance"]))
                     pcb_pad.Flip(pcbnew.VECTOR2I_MM(x, y), False)
                     module.Add(pcb_pad)
 

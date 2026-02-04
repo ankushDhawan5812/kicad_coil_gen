@@ -1,34 +1,29 @@
 [![Demo Video](https://img.youtube.com/vi/CDhlx_VMpCc/0.jpg)](https://www.youtube.com/watch?v=CDhlx_VMpCc)
 
-# Getting set up
+# KiCad Coil Plugins
 
-## Running the notebook locally
+Generate PCB spiral coil footprints for KiCad. Each coil generator produces a matplotlib preview and exports a JSON file that can be imported into KiCad via the coil plugin. A set of Biot-Savart simulations are also included to model and compare the magnetic fields and forces produced by different coil geometries.
 
-Make sure you have python3 installed. Then run the following commands:
+## Coil Generators
+
+Five coil shape generators are available. Each one plots a preview of the coil and saves a JSON file to `coil_json/` with a filename that encodes all parameters:
+
+| Script | Shape | Key Parameters |
+|---|---|---|
+| `gen_circ_coil.py` | Circular spiral | center, radius, turns, spacing, track width |
+| `gen_ellipse_coil.py` | Elliptical spiral | center, x/y radii, turns, spacing, track width |
+| `gen_rect_coil.py` | Rectangular spiral | start, width, height, turns, spacing, track width |
+| `gen_square_coil.py` | Square spiral | start, side length, turns, spacing, track width |
+| `gen_star_coil.py` | 5-pointed star spiral | center, radius, turns, spacing, track width, points per turn |
+
+To run a generator, edit the `coil` dictionary in `main()` to set your desired parameters, then:
 
 ```bash
-python3 -m venv venv
-source venv/bin/activate
-pip install -r requirements.txt
-jupyter notebook
+python3 gen_circ_coil.py
 ```
 
-## Getting KiCad set up
+The output JSON is saved to `coil_json/` and can be loaded into KiCad using the coil plugin.
 
-Add the plugin to KiCad by symbolically linking it to the `kicad_plugins` directory.
+## Helpers
 
-```bash
-ln -s ${PWD}/coil_plugin.py ~/Documents/KiCad/6.0/scripting/plugins/coil_plugin.py
-```
-
-## You can order the PCBs directly from PCBWay (or download the Gerbers) from these links
-
-The project is still very experimental - so there are no guarantees that these will work or do anything useful...
-
-- 6 circular coils - https://www.pcbway.com/project/shareproject/Proof_of_concept_6_coil_spiral_PCB_stator_23ae7370.html
-- 6 wedge coils - https://www.pcbway.com/project/shareproject/Proof_of_concept_6_coil_wedge_PCB_stator_c231a379.html
-- 12 wedge coils - https://www.pcbway.com/project/shareproject/Proof_of_concept_12_coil_wedge_PCB_stator_c54d9374.html
-
-## Building python to take advantage of the M1 Mac Multiprocessors
-
-https://www.reddit.com/r/Python/comments/qog8x3/if_you_are_using_apples_m1_macs_compiling_numpy/
+`helpers.py` provides shared geometry utilities: arc drawing, point rotation/translation/scaling, coordinate flipping, point-count optimization (collinear removal), and Chaikin curve smoothing.
